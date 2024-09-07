@@ -1,21 +1,30 @@
 const express = require('express');
-const sqlite3 = require('sqlite3').verbose();
+const { MongoClient } = require('mongodb');
 const path = require('path');
 const crypto = require('crypto');
+require('dotenv').config(); // Load environment variables from .env file
 
 // Create Express application
 const app = express();
 
-// Create SQLite database
-const db = new sqlite3.Database(path.join(__dirname, 'tracker.db'));
+// MongoDB connection URI
+const uri = process.env.MONGODB_URI;
+const client = new MongoClient(uri);
+
+let db;
 
 // Initialize the database
-db.serialize(() => {
-  db.run('CREATE TABLE IF NOT EXISTS torrents (info_hash TEXT PRIMARY KEY, peers TEXT)');
-});
+async function initializeDb() {
+  if (db) return db;
+  await client.connect();
+  db = client.db('tracker');
+  const collection = db.collection('torrents');
+  await collection.createIndex({ info_hash: 1 }, { unique: true });
+  return db;
+}
 
 // Handle torrent announce requests
-app.get('/announce', (req, res) => {
+app.get('/announce', async (req, res) => {
   const infoHash = req.query.info_hash;
   const peerId = req.query.peer_id;
   const port = req.query.port;
@@ -25,55 +34,66 @@ app.get('/announce', (req, res) => {
     return res.status(400).send('Missing parameters');
   }
 
-  // Store or update peer information in the database
-  db.serialize(() => {
-    db.get('SELECT peers FROM torrents WHERE info_hash = ?', [infoHash], (err, row) => {
-      if (err) return res.status(500).send('Database error');
-      
-      let peers = row ? JSON.parse(row.peers) : [];
+  try {
+    const db = await initializeDb();
+    const collection = db.collection('torrents');
+    let result = await collection.findOne({ info_hash: infoHash });
+    let peers = result ? JSON.parse(result.peers) : [];
 
-      // Add new peer
-      peers.push({ id: peerId, ip: ip, port: port });
+    // Add new peer
+    peers = peers.filter(peer => peer.id !== peerId); // Remove existing peer with the same ID
+    peers.push({ id: peerId, ip: ip, port: port });
 
-      // Save updated peer list
-      db.run('REPLACE INTO torrents (info_hash, peers) VALUES (?, ?)', [infoHash, JSON.stringify(peers)], (err) => {
-        if (err) return res.status(500).send('Database error');
-        
-        res.send({
-          complete: peers.length,
-          incomplete: 0,
-          peers: peers.map(peer => ({
-            ip: peer.ip,
-            port: peer.port
-          }))
-        });
-      });
+    // Save updated peer list
+    await collection.updateOne(
+      { info_hash: infoHash },
+      { $set: { peers: JSON.stringify(peers) } },
+      { upsert: true }
+    );
+
+    res.status(200).json({
+      complete: peers.length,
+      incomplete: 0,
+      peers: peers.map(peer => ({
+        ip: peer.ip,
+        port: peer.port
+      }))
     });
-  });
+  } catch (err) {
+    console.error('Database error:', err);
+    res.status(500).send('Database error');
+  }
 });
 
 // Handle torrent scraping requests (optional)
-app.get('/scrape', (req, res) => {
+app.get('/scrape', async (req, res) => {
   const infoHash = req.query.info_hash;
 
   if (!infoHash) {
     return res.status(400).send('Missing info_hash parameter');
   }
 
-  db.get('SELECT peers FROM torrents WHERE info_hash = ?', [infoHash], (err, row) => {
-    if (err) return res.status(500).send('Database error');
+  try {
+    const db = await initializeDb();
+    const collection = db.collection('torrents');
+    const result = await collection.findOne({ info_hash: infoHash });
+    const peers = result ? JSON.parse(result.peers) : [];
 
-    res.send({
+    res.status(200).json({
       files: [{
-        complete: row ? JSON.parse(row.peers).length : 0,
+        complete: peers.length,
         incomplete: 0
       }]
     });
-  });
+  } catch (err) {
+    console.error('Database error:', err);
+    res.status(500).send('Database error');
+  }
 });
 
 // Start the server
 const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
+  await initializeDb();
   console.log(`Tracker listening on port ${PORT}`);
 });
