@@ -50,6 +50,7 @@ trackerServer.on('start', function (addr) {
       incomplete: 0
     };
     torrents.set(infoHash, torrent);
+    // Log the custom HTTP server and new torrent seeding
     console.log(`Custom HTTP server is listening on port ${process.env.PORT || 10000}...`);
     console.log(`New torrent started seeding: ${infoHash}`);
   }
