@@ -25,13 +25,12 @@ server.on('warning', function (err) {
 server.on('listening', function () {
   // Log the addresses and ports for HTTP, UDP, and WebSocket servers
   const httpAddr = server.http.address();
-  console.log(`HTTP tracker: http://${httpAddr.address}:${httpAddr.port}/announce`);
-
   const udpAddr = server.udp.address();
-  console.log(`UDP tracker: udp://${udpAddr.address}:${udpAddr.port}`);
-
   const wsAddr = server.ws.address();
-  console.log(`WebSocket tracker: ws://${wsAddr.address}:${wsAddr.port}`);
+
+  console.log(`HTTP tracker: http://www.fastsharetorrent.me:${httpAddr.port}/announce`);
+  console.log(`UDP tracker: udp://www.fastsharetorrent.me:${udpAddr.port}`);
+  console.log(`WebSocket tracker: ws://www.fastsharetorrent.me:${wsAddr.port}`);
 });
 
 // Log events for different actions
