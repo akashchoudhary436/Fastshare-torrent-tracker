@@ -57,8 +57,17 @@ const httpServer = http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/plain' });
     res.end('Tracker is live and running!\n');
   } else if (req.url.startsWith('/announce') || req.url.startsWith('/scrape')) {
-    // Delegate to the bittorrent-tracker server for announce and scrape endpoints
-    trackerServer.http.handle(req, res);
+    // Log request details for debugging
+    console.log(`Received request: ${req.method} ${req.url}`);
+    req.on('data', (chunk) => {
+      console.log(`Request body chunk: ${chunk}`);
+    });
+    req.on('end', () => {
+      console.log(`Request body complete`);
+
+      // Delegate to the bittorrent-tracker server for announce and scrape endpoints
+      trackerServer.http.handle(req, res);
+    });
   } else {
     // Handle other endpoints if necessary
     res.writeHead(404, { 'Content-Type': 'text/plain' });
