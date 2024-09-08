@@ -39,7 +39,7 @@ trackerServer.on('start', function (addr) {
       incomplete: 0
     };
     torrents.set(infoHash, torrent);
-    // Log the custom HTTP server and new torrent seeding
+    // Log new torrent seeding
     console.log(`New torrent started seeding: ${infoHash}`);
   }
 
@@ -74,12 +74,13 @@ const httpServer = http.createServer((req, res) => {
   }
 });
 
-// Function to start the server
-function startServer(port) {
-  httpServer.listen(port, () => {
-    console.log(`Custom HTTP server is listening on port ${port}...`);
+// Start the custom HTTP server
+const port = process.env.PORT || 10000; // Set the port explicitly if needed
+httpServer.listen(port, () => {
+  console.log(`Custom HTTP server is listening on port ${port}...`);
 
-    // Now log tracker URLs
+  // Now log tracker URLs after ensuring the tracker server is fully initialized
+  trackerServer.once('listening', () => {
     try {
       const httpAddr = trackerServer.http.address();
       const udpAddr = trackerServer.udp.address();
@@ -92,11 +93,4 @@ function startServer(port) {
       console.error('Error retrieving tracker addresses:', err.message);
     }
   });
-}
-
-// Determine the port to use
-const defaultPort = 10000;
-const port = process.env.PORT || defaultPort;
-
-// Start the server
-startServer(port);
+});
