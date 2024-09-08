@@ -51,6 +51,7 @@ trackerServer.on('start', function (addr) {
       incomplete: 0
     };
     torrents.set(infoHash, torrent);
+    console.log(`New torrent started seeding: ${infoHash}`);
   }
 
   torrent.peers.add(addr.address);
@@ -66,6 +67,8 @@ trackerServer.on('update', function (addr) {
   if (torrent) {
     torrent.peers.add(addr.address);
     console.log(`Updated peer ${addr.address} for torrent ${infoHash}`);
+  } else {
+    console.warn(`No torrent found for info hash ${infoHash}`);
   }
 });
 
@@ -78,6 +81,8 @@ trackerServer.on('complete', function (addr) {
   if (torrent) {
     torrent.complete += 1;
     console.log(`Peer completed for torrent ${infoHash}. Total completes: ${torrent.complete}`);
+  } else {
+    console.warn(`No torrent found for info hash ${infoHash}`);
   }
 });
 
@@ -90,6 +95,8 @@ trackerServer.on('stop', function (addr) {
   if (torrent) {
     torrent.peers.delete(addr.address);
     console.log(`Removed peer ${addr.address} from torrent ${infoHash}`);
+  } else {
+    console.warn(`No torrent found for info hash ${infoHash}`);
   }
 });
 
