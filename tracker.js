@@ -7,6 +7,15 @@ const server = new Server({
   ws: true, // Enable WebSocket server
   stats: true, // Enable web-based statistics
   trustProxy: false, // Trust x-forwarded-for header (use with caution)
+  filter: function (infoHash, params, cb) {
+    // Example filter to allow only specific torrents
+    const allowed = (infoHash === 'aaa67059ed6bd08362da625b3ae77f6f4a075aaa'); // Replace with your own logic
+    if (allowed) {
+      cb(null); // Allow the torrent
+    } else {
+      cb(new Error('disallowed torrent')); // Disallow the torrent
+    }
+  }
 });
 
 // Handle server events
@@ -48,9 +57,8 @@ server.on('stop', function (addr) {
 });
 
 // Start the tracker server
-const port = process.env.PORT || 8080; // Use environment variable PORT or fallback to 8080
-const hostname = '0.0.0.0'; // Bind to all network interfaces
-
+const port = process.env.PORT || 0; // Use environment PORT or fallback to random port
+const hostname = '0.0.0.0'; // Listen on all network interfaces
 server.listen(port, hostname, () => {
-  console.log(`Tracker server is listening on http://localhost:${port}...`);
+  console.log(`Tracker server is listening on port ${port}...`);
 });
