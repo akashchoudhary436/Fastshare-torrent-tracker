@@ -74,17 +74,29 @@ const httpServer = http.createServer((req, res) => {
   }
 });
 
-// Start the custom HTTP server
-const port = process.env.PORT || 10000; // Set the port explicitly if needed
-httpServer.listen(port, () => {
-  console.log(`Custom HTTP server is listening on port ${port}...`);
+// Function to start the server
+function startServer(port) {
+  httpServer.listen(port, () => {
+    console.log(`Custom HTTP server is listening on port ${port}...`);
 
-  // Now log tracker URLs
-  const httpAddr = trackerServer.http.address();
-  const udpAddr = trackerServer.udp.address();
-  const wsAddr = trackerServer.ws.address();
+    // Now log tracker URLs
+    try {
+      const httpAddr = trackerServer.http.address();
+      const udpAddr = trackerServer.udp.address();
+      const wsAddr = trackerServer.ws.address();
 
-  console.log(`HTTP tracker: http://www.fastsharetorrent.me:${httpAddr.port}/announce`);
-  console.log(`UDP tracker: udp://www.fastsharetorrent.me:${udpAddr.port}`);
-  console.log(`WebSocket tracker: ws://www.fastsharetorrent.me:${wsAddr.port}`);
-});
+      console.log(`HTTP tracker: http://www.fastsharetorrent.me:${httpAddr.port}/announce`);
+      console.log(`UDP tracker: udp://www.fastsharetorrent.me:${udpAddr.port}`);
+      console.log(`WebSocket tracker: ws://www.fastsharetorrent.me:${wsAddr.port}`);
+    } catch (err) {
+      console.error('Error retrieving tracker addresses:', err.message);
+    }
+  });
+}
+
+// Determine the port to use
+const defaultPort = 10000;
+const port = process.env.PORT || defaultPort;
+
+// Start the server
+startServer(port);
