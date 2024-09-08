@@ -112,7 +112,7 @@ trackerServer.on('stop', async function (addr) {
 });
 
 // Create a custom HTTP server to handle the root and other endpoints
-const httpServer = http.createServer((req, res) => {
+const httpServer = http.createServer(async (req, res) => {
   if (req.url === '/') {
     res.writeHead(200, { 'Content-Type': 'text/plain' });
     res.end('Tracker is live and running!\n');
@@ -123,9 +123,9 @@ const httpServer = http.createServer((req, res) => {
   } else if (req.url === '/torrents') {
     console.log('Handling /torrents request');
     // Endpoint to get info hashes for all torrents
-    const torrents = Object.keys(trackerServer.torrents);
+    const torrents = await Torrent.find({}, 'infoHash');
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(torrents));
+    res.end(JSON.stringify(torrents.map(t => t.infoHash)));
   } else {
     // Handle other endpoints if necessary
     res.writeHead(404, { 'Content-Type': 'text/plain' });
