@@ -36,7 +36,7 @@ server.on('listening', function () {
 })
 
 // Start tracker server listening! Use a specific port number.
-const port = 8000; // Example port number
+const port = process.env.PORT || 8000;
 const hostname = "0.0.0.0"; // Bind to all available network interfaces
 server.listen(port, hostname, () => {
   console.log('Tracker server is listening on port ' + port + '...')
