@@ -95,6 +95,8 @@ app.get('/scrape', async (req, res) => {
     res.status(500).send('Database error');
   }
 });
+const data = JSON.parse(message);
+const { info_hash, peer_id, port } = data;
 
 // Start the server
 const PORT = process.env.PORT || 8080;
