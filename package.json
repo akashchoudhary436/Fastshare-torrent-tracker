@@ -1,19 +1,25 @@
 {
-  "name": "torrent-tracker",
+  "name": "tracker",
   "version": "1.0.0",
   "main": "tracker.js",
+  "type": "module",
   "scripts": {
     "start": "node tracker.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "lint": "eslint ."
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "torrent",
+    "tracker",
+    "bittorrent"
+  ],
+  "author": "Akash", 
   "license": "ISC",
-  "description": "",
+  "description": "A BitTorrent tracker server implemented with bittorrent-tracker",
   "dependencies": {
-    "dotenv": "^16.4.5",
-    "express": "^4.19.2",
-    "mongodb": "^6.8.1",
-    "torrent-tracker": "file:"
+    "bittorrent-tracker": "^11.1.2"
+  },
+  "devDependencies": {
+    "eslint": "^8.0.0"  // Optional: add eslint for linting if desired
   }
 }
