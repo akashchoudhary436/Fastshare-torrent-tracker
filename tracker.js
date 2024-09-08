@@ -1,85 +1,57 @@
-import { Server } from 'bittorrent-tracker';
-import http from 'http';
+import { Server } from 'bittorrent-tracker'
 
-// In-memory storage for torrents
-const torrents = new Map();
-
-// Create a new tracker server instance
-const trackerServer = new Server({
-  udp: true, // Enable UDP server
-  http: true, // Enable HTTP server
+const server = new Server({
+  udp: false, // Disable UDP server
+  http: false, // Disable HTTP server
   ws: true, // Enable WebSocket server
   stats: true, // Enable web-based statistics
-  trustProxy: false, // Trust x-forwarded-for header (use with caution)
+  trustProxy: false, // Enable trusting x-forwarded-for header for remote IP
   filter: function (infoHash, params, cb) {
-    // Allow all info hashes
+    // Allow all torrents
     cb(null);
   }
-});
+})
 
-// Handle server events
-trackerServer.on('error', function (err) {
-  console.error('Server error:', err.message);
-});
+// Internal WebSocket server exposed as public property.
+server.ws
 
-trackerServer.on('warning', function (err) {
-  console.warn('Server warning:', err.message);
-});
+server.on('error', function (err) {
+  // Fatal server error!
+  console.log(err.message)
+})
 
-trackerServer.on('listening', function () {
-  const httpAddr = trackerServer.http.address();
-  // Only log the custom HTTP server startup message
-  console.log(`Custom HTTP server is listening on port ${httpAddr.port}...`);
-});
+server.on('warning', function (err) {
+  // Client sent bad data. Probably not a problem, just a buggy client.
+  console.log(err.message)
+})
 
-trackerServer.on('start', function (addr) {
-  const infoHash = addr.infoHash;
+server.on('listening', function () {
+  // Fired when the WebSocket server is listening
 
-  let torrent = torrents.get(infoHash);
+  // WebSocket
+  const wsAddr = server.ws.address()
+  const wsHost = wsAddr.address !== '::' ? wsAddr.address : 'localhost'
+  const wsPort = wsAddr.port
+  console.log(`WebSocket tracker: ws://${wsHost}:${wsPort}`)
+})
 
-  if (!torrent) {
-    torrent = {
-      infoHash,
-      peers: new Set(),
-      complete: 0,
-      incomplete: 0
-    };
-    torrents.set(infoHash, torrent);
-    // Log only the fact that a new torrent is being seeded
-    console.log('New torrent started seeding');
-  }
+// Start tracker server listening! Use a specific port number.
+const port = 8000; // Example port number
+const hostname = "0.0.0.0"; // Bind to all available network interfaces
+server.listen(port, hostname, () => {
+  console.log('Tracker server is listening on port ' + port + '...')
+})
 
-  // Add the peer to the torrent
-  torrent.peers.add(addr.address);
-});
+// Listen for individual tracker messages from peers:
+server.on('start', function (addr) {
+  console.log('Got start message from ' + addr)
+})
 
-// Remove detailed logs of 'update', 'complete', or 'stop' events
-trackerServer.removeAllListeners('update');
-trackerServer.removeAllListeners('complete');
-trackerServer.removeAllListeners('stop');
+server.on('complete', function (addr) {})
+server.on('update', function (addr) {})
+server.on('stop', function (addr) {})
 
-// Create a custom HTTP server to handle the root and other endpoints
-const httpServer = http.createServer((req, res) => {
-  if (req.url === '/') {
-    res.writeHead(200, { 'Content-Type': 'text/plain' });
-    res.end('Tracker is live and running on https://www.fastsharetorrent.me!\n');
-  } else if (req.url.startsWith('/announce') || req.url.startsWith('/scrape')) {
-    // Forward the request to the tracker server
-    trackerServer.http.emit('request', req, res);
-  } else if (req.url === '/torrents') {
-    // Endpoint to get info hashes for all torrents
-    const torrentInfoHashes = Array.from(torrents.keys());
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(torrentInfoHashes));
-  } else {
-    // Handle other endpoints if necessary
-    res.writeHead(404, { 'Content-Type': 'text/plain' });
-    res.end('Not Found\n');
-  }
-});
+// Log current info hashes for all torrents in the tracker server
+console.log(Object.keys(server.torrents))
 
-// Start the custom HTTP server
-const port = process.env.PORT || 10000; // Set the port explicitly if needed
-httpServer.listen(port, () => {
-  console.log(`Custom HTTP server is listening on port ${port}...`);
-});
+// Note: Removed the example infoHash and related code
