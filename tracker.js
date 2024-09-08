@@ -2,7 +2,6 @@ import { Server } from 'bittorrent-tracker';
 import http from 'http';
 import mongoose from 'mongoose';
 
-
 // Connect to MongoDB using environment variable
 const MONGODB_URI = process.env.MONGODB_URI; // Assume the URI is set in the environment variables
 if (!MONGODB_URI) {
@@ -59,18 +58,22 @@ trackerServer.on('start', async function (addr) {
   console.log('Peer started:', addr);
 
   const infoHash = addr.infoHash; // Assuming the event provides infoHash
-  const torrent = await Torrent.findOne({ infoHash });
+  try {
+    const torrent = await Torrent.findOne({ infoHash });
 
-  if (!torrent) {
-    await Torrent.create({
-      infoHash,
-      peers: [addr.address],
-      complete: 0,
-      incomplete: 0
-    });
-  } else {
-    torrent.peers.push(addr.address);
-    await torrent.save();
+    if (!torrent) {
+      await Torrent.create({
+        infoHash,
+        peers: [addr.address],
+        complete: 0,
+        incomplete: 0
+      });
+    } else {
+      torrent.peers.push(addr.address);
+      await torrent.save();
+    }
+  } catch (error) {
+    console.error('Error handling start event:', error);
   }
 });
 
@@ -78,12 +81,15 @@ trackerServer.on('update', async function (addr) {
   console.log('Peer updated:', addr);
 
   const infoHash = addr.infoHash; // Assuming the event provides infoHash
-  const torrent = await Torrent.findOne({ infoHash });
+  try {
+    const torrent = await Torrent.findOne({ infoHash });
 
-  if (torrent) {
-    // Update peers or other fields as needed
-    torrent.peers.push(addr.address);
-    await torrent.save();
+    if (torrent) {
+      torrent.peers.push(addr.address);
+      await torrent.save();
+    }
+  } catch (error) {
+    console.error('Error handling update event:', error);
   }
 });
 
@@ -91,11 +97,15 @@ trackerServer.on('complete', async function (addr) {
   console.log('Peer completed:', addr);
 
   const infoHash = addr.infoHash; // Assuming the event provides infoHash
-  const torrent = await Torrent.findOne({ infoHash });
+  try {
+    const torrent = await Torrent.findOne({ infoHash });
 
-  if (torrent) {
-    torrent.complete += 1;
-    await torrent.save();
+    if (torrent) {
+      torrent.complete += 1;
+      await torrent.save();
+    }
+  } catch (error) {
+    console.error('Error handling complete event:', error);
   }
 });
 
@@ -103,11 +113,15 @@ trackerServer.on('stop', async function (addr) {
   console.log('Peer stopped:', addr);
 
   const infoHash = addr.infoHash; // Assuming the event provides infoHash
-  const torrent = await Torrent.findOne({ infoHash });
+  try {
+    const torrent = await Torrent.findOne({ infoHash });
 
-  if (torrent) {
-    torrent.peers = torrent.peers.filter(peer => peer !== addr.address);
-    await torrent.save();
+    if (torrent) {
+      torrent.peers = torrent.peers.filter(peer => peer !== addr.address);
+      await torrent.save();
+    }
+  } catch (error) {
+    console.error('Error handling stop event:', error);
   }
 });
 
@@ -123,9 +137,15 @@ const httpServer = http.createServer(async (req, res) => {
   } else if (req.url === '/torrents') {
     console.log('Handling /torrents request');
     // Endpoint to get info hashes for all torrents
-    const torrents = await Torrent.find({}, 'infoHash');
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(torrents.map(t => t.infoHash)));
+    try {
+      const torrents = await Torrent.find({}, 'infoHash');
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(torrents.map(t => t.infoHash)));
+    } catch (error) {
+      console.error('Error fetching torrents:', error);
+      res.writeHead(500, { 'Content-Type': 'text/plain' });
+      res.end('Error fetching torrents\n');
+    }
   } else {
     // Handle other endpoints if necessary
     res.writeHead(404, { 'Content-Type': 'text/plain' });
