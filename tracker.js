@@ -26,17 +26,6 @@ trackerServer.on('warning', function (err) {
   console.warn('Server warning:', err.message);
 });
 
-// Log tracker URLs when the server starts
-trackerServer.on('listening', function () {
-  const httpAddr = trackerServer.http.address();
-  const udpAddr = trackerServer.udp.address();
-  const wsAddr = trackerServer.ws.address();
-
-  console.log(`HTTP tracker: http://www.fastsharetorrent.me:${httpAddr.port}/announce`);
-  console.log(`UDP tracker: udp://www.fastsharetorrent.me:${udpAddr.port}`);
-  console.log(`WebSocket tracker: ws://www.fastsharetorrent.me:${wsAddr.port}`);
-});
-
 // Log new torrent seeding
 trackerServer.on('start', function (addr) {
   const infoHash = addr.infoHash;
@@ -51,7 +40,6 @@ trackerServer.on('start', function (addr) {
     };
     torrents.set(infoHash, torrent);
     // Log the custom HTTP server and new torrent seeding
-    console.log(`Custom HTTP server is listening on port ${process.env.PORT || 10000}...`);
     console.log(`New torrent started seeding: ${infoHash}`);
   }
 
@@ -90,4 +78,13 @@ const httpServer = http.createServer((req, res) => {
 const port = process.env.PORT || 10000; // Set the port explicitly if needed
 httpServer.listen(port, () => {
   console.log(`Custom HTTP server is listening on port ${port}...`);
+
+  // Now log tracker URLs
+  const httpAddr = trackerServer.http.address();
+  const udpAddr = trackerServer.udp.address();
+  const wsAddr = trackerServer.ws.address();
+
+  console.log(`HTTP tracker: http://www.fastsharetorrent.me:${httpAddr.port}/announce`);
+  console.log(`UDP tracker: udp://www.fastsharetorrent.me:${udpAddr.port}`);
+  console.log(`WebSocket tracker: ws://www.fastsharetorrent.me:${wsAddr.port}`);
 });
