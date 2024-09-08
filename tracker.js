@@ -23,6 +23,11 @@ async function initializeDb() {
   return db;
 }
 
+// Handle root URL
+app.get('/', (req, res) => {
+  res.send('Tracker is live');
+});
+
 // Handle torrent announce requests
 app.get('/announce', async (req, res) => {
   const infoHash = req.query.info_hash;
