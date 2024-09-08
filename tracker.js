@@ -31,6 +31,11 @@ trackerServer.on('listening', function () {
   console.log(`HTTP tracker: http://www.fastsharetorrent.me:${httpAddr.port}/announce`);
   console.log(`UDP tracker: udp://www.fastsharetorrent.me:${udpAddr.port}`);
   console.log(`WebSocket tracker: ws://www.fastsharetorrent.me:${wsAddr.port}`);
+  
+  // Logging internal server properties
+  console.log('HTTP Server:', trackerServer.http);
+  console.log('UDP Server:', trackerServer.udp);
+  console.log('WebSocket Server:', trackerServer.ws);
 });
 
 // Log events for different actions
@@ -64,6 +69,12 @@ const httpServer = http.createServer((req, res) => {
     console.log('Handling /scrape request');
     // Delegate to the bittorrent-tracker server for scrape endpoint
     trackerServer.http.handle(req, res);
+  } else if (req.url === '/torrents') {
+    console.log('Handling /torrents request');
+    // Endpoint to get info hashes for all torrents
+    const torrents = Object.keys(trackerServer.torrents);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(torrents));
   } else {
     // Handle other endpoints if necessary
     res.writeHead(404, { 'Content-Type': 'text/plain' });
@@ -74,5 +85,5 @@ const httpServer = http.createServer((req, res) => {
 // Start the custom HTTP server
 const port = process.env.PORT || 10000; // Set the port explicitly if needed
 httpServer.listen(port, () => {
-  console.log(`Tracker server is listening on port ${port}...`);
+  console.log(`Custom HTTP server is listening on port ${port}...`);
 });
