@@ -1,6 +1,7 @@
 {
   "name": "tracker",
   "version": "1.0.0",
+  "description": "A BitTorrent tracker server implemented with bittorrent-tracker",
   "main": "tracker.js",
   "type": "module",
   "scripts": {
@@ -15,10 +16,8 @@
   ],
   "author": "Akash",
   "license": "ISC",
-  "description": "A BitTorrent tracker server implemented with bittorrent-tracker",
   "dependencies": {
     "bittorrent-tracker": "^11.1.2",
-    "moongose": "^1.0.0",
     "tracker": "file:"
   },
   "devDependencies": {
