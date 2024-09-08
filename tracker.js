@@ -11,9 +11,15 @@ const wsPort = process.env.WS_PORT || 10002;
 
 // Create a new tracker server instance
 const server = new Server({
-  udp: true, // Enable UDP server
-  http: true, // Enable HTTP server
-  ws: true, // Enable WebSocket server
+  udp: {
+    port: udpPort
+  }, // Enable and configure UDP server
+  http: {
+    port: httpPort
+  }, // Enable and configure HTTP server
+  ws: {
+    port: wsPort
+  }, // Enable and configure WebSocket server
   stats: true, // Enable web-based statistics
   trustProxy: false, // Trust x-forwarded-for header (use with caution)
   filter: function (infoHash, params, cb) {
@@ -97,20 +103,6 @@ const httpServer = http.createServer((req, res) => {
 // Start the custom HTTP server
 httpServer.listen(httpPort, () => {
   console.log(`Custom HTTP server is listening on port ${httpPort}...`);
-
-  // Start tracker server listening
-  server.listen(httpPort, '0.0.0.0', () => {
-    console.log(`Tracker server is now listening at 0.0.0.0:${httpPort}...`);
-  });
-});
-
-// Manually start UDP and WebSocket servers with different ports
-server.udp.listen(udpPort, '0.0.0.0', () => {
-  console.log(`UDP server is now listening on port ${udpPort}...`);
-});
-
-server.ws.listen(wsPort, '0.0.0.0', () => {
-  console.log(`WebSocket server is now listening on port ${wsPort}...`);
 });
 
 // Listen for individual tracker messages from peers
