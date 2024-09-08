@@ -58,7 +58,6 @@ server.on('stop', function (addr) {
 
 // Start the tracker server
 const port = process.env.PORT || 0; // Use environment PORT or fallback to random port
-const hostname = '0.0.0.0'; // Listen on all network interfaces
-server.listen(port, hostname, () => {
+server.listen(port, () => {
   console.log(`Tracker server is listening on port ${port}...`);
 });
