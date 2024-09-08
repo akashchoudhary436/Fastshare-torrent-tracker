@@ -1,25 +1,8 @@
 import { Server } from 'bittorrent-tracker';
 import http from 'http';
-import mongoose from 'mongoose';
 
-// Connect to MongoDB using environment variable
-const MONGODB_URI = process.env.MONGODB_URI; // Assume the URI is set in the environment variables
-if (!MONGODB_URI) {
-  console.error('MONGODB_URI environment variable is not set');
-  process.exit(1);
-}
-
-mongoose.connect(MONGODB_URI, { useNewUrlParser: true, useUnifiedTopology: true });
-mongoose.set('strictQuery', false); // Handle deprecation warning
-
-const torrentSchema = new mongoose.Schema({
-  infoHash: { type: String, required: true, unique: true },
-  peers: [{ type: String }], // List of peer addresses
-  complete: { type: Number, default: 0 }, // Number of complete peers
-  incomplete: { type: Number, default: 0 }, // Number of incomplete peers
-  createdAt: { type: Date, default: Date.now }
-});
-const Torrent = mongoose.model('Torrent', torrentSchema);
+// In-memory storage for torrents
+const torrents = new Map();
 
 // Create a new tracker server instance
 const trackerServer = new Server({
@@ -53,80 +36,65 @@ trackerServer.on('listening', function () {
   console.log(`WebSocket tracker: ws://www.fastsharetorrent.me:${wsAddr.port}`);
 });
 
-// Log events for different actions and save to MongoDB
-trackerServer.on('start', async function (addr) {
+// Log events for different actions
+trackerServer.on('start', function (addr) {
   console.log('Peer started:', addr);
 
-  const infoHash = addr.infoHash; // Assuming the event provides infoHash
-  try {
-    const torrent = await Torrent.findOne({ infoHash });
+  const infoHash = addr.infoHash;
+  let torrent = torrents.get(infoHash);
 
-    if (!torrent) {
-      await Torrent.create({
-        infoHash,
-        peers: [addr.address],
-        complete: 0,
-        incomplete: 0
-      });
-    } else {
-      torrent.peers.push(addr.address);
-      await torrent.save();
-    }
-  } catch (error) {
-    console.error('Error handling start event:', error);
+  if (!torrent) {
+    torrent = {
+      infoHash,
+      peers: new Set(),
+      complete: 0,
+      incomplete: 0
+    };
+    torrents.set(infoHash, torrent);
   }
+
+  torrent.peers.add(addr.address);
+  console.log(`Added peer ${addr.address} to torrent ${infoHash}`);
 });
 
-trackerServer.on('update', async function (addr) {
+trackerServer.on('update', function (addr) {
   console.log('Peer updated:', addr);
 
-  const infoHash = addr.infoHash; // Assuming the event provides infoHash
-  try {
-    const torrent = await Torrent.findOne({ infoHash });
+  const infoHash = addr.infoHash;
+  const torrent = torrents.get(infoHash);
 
-    if (torrent) {
-      torrent.peers.push(addr.address);
-      await torrent.save();
-    }
-  } catch (error) {
-    console.error('Error handling update event:', error);
+  if (torrent) {
+    torrent.peers.add(addr.address);
+    console.log(`Updated peer ${addr.address} for torrent ${infoHash}`);
   }
 });
 
-trackerServer.on('complete', async function (addr) {
+trackerServer.on('complete', function (addr) {
   console.log('Peer completed:', addr);
 
-  const infoHash = addr.infoHash; // Assuming the event provides infoHash
-  try {
-    const torrent = await Torrent.findOne({ infoHash });
+  const infoHash = addr.infoHash;
+  const torrent = torrents.get(infoHash);
 
-    if (torrent) {
-      torrent.complete += 1;
-      await torrent.save();
-    }
-  } catch (error) {
-    console.error('Error handling complete event:', error);
+  if (torrent) {
+    torrent.complete += 1;
+    console.log(`Peer completed for torrent ${infoHash}. Total completes: ${torrent.complete}`);
   }
 });
 
-trackerServer.on('stop', async function (addr) {
+trackerServer.on('stop', function (addr) {
   console.log('Peer stopped:', addr);
 
-  const infoHash = addr.infoHash; // Assuming the event provides infoHash
-  try {
-    const torrent = await Torrent.findOne({ infoHash });
+  const infoHash = addr.infoHash;
+  const torrent = torrents.get(infoHash);
 
-    if (torrent) {
-      torrent.peers = torrent.peers.filter(peer => peer !== addr.address);
-      await torrent.save();
-    }
-  } catch (error) {
-    console.error('Error handling stop event:', error);
+  if (torrent) {
+    torrent.peers.delete(addr.address);
+    console.log(`Removed peer ${addr.address} from torrent ${infoHash}`);
   }
 });
 
 // Create a custom HTTP server to handle the root and other endpoints
-const httpServer = http.createServer(async (req, res) => {
+const httpServer = http.createServer((req, res) => {
   if (req.url === '/') {
     res.writeHead(200, { 'Content-Type': 'text/plain' });
     res.end('Tracker is live and running!\n');
@@ -137,15 +105,9 @@ const httpServer = http.createServer(async (req, res) => {
   } else if (req.url === '/torrents') {
     console.log('Handling /torrents request');
     // Endpoint to get info hashes for all torrents
-    try {
-      const torrents = await Torrent.find({}, 'infoHash');
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(torrents.map(t => t.infoHash)));
-    } catch (error) {
-      console.error('Error fetching torrents:', error);
-      res.writeHead(500, { 'Content-Type': 'text/plain' });
-      res.end('Error fetching torrents\n');
-    }
+    const torrentInfoHashes = Array.from(torrents.keys());
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(torrentInfoHashes));
   } else {
     // Handle other endpoints if necessary
     res.writeHead(404, { 'Content-Type': 'text/plain' });
