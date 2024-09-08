@@ -2,7 +2,7 @@ import { Server } from 'bittorrent-tracker';
 import http from 'http';
 
 // Create a new tracker server instance
-const server = new Server({
+const trackerServer = new Server({
   udp: true, // Enable UDP server
   http: true, // Enable HTTP server
   ws: true, // Enable WebSocket server
@@ -15,18 +15,18 @@ const server = new Server({
 });
 
 // Handle server events
-server.on('error', function (err) {
+trackerServer.on('error', function (err) {
   console.error('Server error:', err.message);
 });
 
-server.on('warning', function (err) {
+trackerServer.on('warning', function (err) {
   console.warn('Server warning:', err.message);
 });
 
-server.on('listening', function () {
-  const httpAddr = server.http.address();
-  const udpAddr = server.udp.address();
-  const wsAddr = server.ws.address();
+trackerServer.on('listening', function () {
+  const httpAddr = trackerServer.http.address();
+  const udpAddr = trackerServer.udp.address();
+  const wsAddr = trackerServer.ws.address();
 
   console.log(`HTTP tracker: http://www.fastsharetorrent.me:${httpAddr.port}/announce`);
   console.log(`UDP tracker: udp://www.fastsharetorrent.me:${udpAddr.port}`);
@@ -34,29 +34,35 @@ server.on('listening', function () {
 });
 
 // Log events for different actions
-server.on('start', function (addr) {
+trackerServer.on('start', function (addr) {
   console.log('Peer started:', addr);
 });
 
-server.on('update', function (addr) {
+trackerServer.on('update', function (addr) {
   console.log('Peer updated:', addr);
 });
 
-server.on('complete', function (addr) {
+trackerServer.on('complete', function (addr) {
   console.log('Peer completed:', addr);
 });
 
-server.on('stop', function (addr) {
+trackerServer.on('stop', function (addr) {
   console.log('Peer stopped:', addr);
 });
 
-// Create a custom HTTP server to handle the root endpoint
+// Create a custom HTTP server to handle the root and other endpoints
 const httpServer = http.createServer((req, res) => {
   if (req.url === '/') {
+    // Handle root endpoint
     res.writeHead(200, { 'Content-Type': 'text/plain' });
     res.end('Tracker is live and running!\n');
+  } else if (req.url.startsWith('/announce') || req.url.startsWith('/scrape')) {
+    // Delegate to the bittorrent-tracker server for announce and scrape endpoints
+    trackerServer.http.handle(req, res);
   } else {
-    server.http.handle(req, res); // Delegate to the bittorrent-tracker server for other routes
+    // Handle other endpoints if necessary
+    res.writeHead(404, { 'Content-Type': 'text/plain' });
+    res.end('Not Found\n');
   }
 });
 
