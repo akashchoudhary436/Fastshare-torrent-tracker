@@ -1,5 +1,25 @@
 import { Server } from 'bittorrent-tracker';
 import http from 'http';
+import mongoose from 'mongoose';
+
+// Connect to MongoDB using environment variable
+const MONGODB_URI = process.env.MONGODB_URI; // Assume the URI is set in the environment variables
+if (!MONGODB_URI) {
+  console.error('MONGODB_URI environment variable is not set');
+  process.exit(1);
+}
+
+mongoose.connect(MONGODB_URI, { useNewUrlParser: true, useUnifiedTopology: true });
+mongoose.set('strictQuery', false); // Handle deprecation warning
+
+const torrentSchema = new mongoose.Schema({
+  infoHash: { type: String, required: true, unique: true },
+  peers: [{ type: String }], // List of peer addresses
+  complete: { type: Number, default: 0 }, // Number of complete peers
+  incomplete: { type: Number, default: 0 }, // Number of incomplete peers
+  createdAt: { type: Date, default: Date.now }
+});
+const Torrent = mongoose.model('Torrent', torrentSchema);
 
 // Create a new tracker server instance
 const trackerServer = new Server({
@@ -31,11 +51,6 @@ trackerServer.on('listening', function () {
   console.log(`HTTP tracker: http://www.fastsharetorrent.me:${httpAddr.port}/announce`);
   console.log(`UDP tracker: udp://www.fastsharetorrent.me:${udpAddr.port}`);
   console.log(`WebSocket tracker: ws://www.fastsharetorrent.me:${wsAddr.port}`);
-  
-  // Logging internal server properties
-  console.log('HTTP Server:', trackerServer.http);
-  console.log('UDP Server:', trackerServer.udp);
-  console.log('WebSocket Server:', trackerServer.ws);
 });
 
 // Log events for different actions
@@ -58,17 +73,12 @@ trackerServer.on('stop', function (addr) {
 // Create a custom HTTP server to handle the root and other endpoints
 const httpServer = http.createServer((req, res) => {
   if (req.url === '/') {
-    // Handle root endpoint
     res.writeHead(200, { 'Content-Type': 'text/plain' });
     res.end('Tracker is live and running!\n');
-  } else if (req.url.startsWith('/announce')) {
-    console.log('Handling /announce request');
-    // Delegate to the bittorrent-tracker server for announce endpoint
-    trackerServer.http.handle(req, res);
-  } else if (req.url.startsWith('/scrape')) {
-    console.log('Handling /scrape request');
-    // Delegate to the bittorrent-tracker server for scrape endpoint
-    trackerServer.http.handle(req, res);
+  } else if (req.url.startsWith('/announce') || req.url.startsWith('/scrape')) {
+    console.log(`Handling ${req.url} request`);
+    // Forward the request to the tracker server
+    trackerServer.http.emit('request', req, res);
   } else if (req.url === '/torrents') {
     console.log('Handling /torrents request');
     // Endpoint to get info hashes for all torrents
