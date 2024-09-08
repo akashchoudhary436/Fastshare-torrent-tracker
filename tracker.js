@@ -2,6 +2,7 @@ import { Server } from 'bittorrent-tracker';
 import http from 'http';
 import mongoose from 'mongoose';
 
+
 // Connect to MongoDB using environment variable
 const MONGODB_URI = process.env.MONGODB_URI; // Assume the URI is set in the environment variables
 if (!MONGODB_URI) {
@@ -53,21 +54,61 @@ trackerServer.on('listening', function () {
   console.log(`WebSocket tracker: ws://www.fastsharetorrent.me:${wsAddr.port}`);
 });
 
-// Log events for different actions
-trackerServer.on('start', function (addr) {
+// Log events for different actions and save to MongoDB
+trackerServer.on('start', async function (addr) {
   console.log('Peer started:', addr);
+
+  const infoHash = addr.infoHash; // Assuming the event provides infoHash
+  const torrent = await Torrent.findOne({ infoHash });
+
+  if (!torrent) {
+    await Torrent.create({
+      infoHash,
+      peers: [addr.address],
+      complete: 0,
+      incomplete: 0
+    });
+  } else {
+    torrent.peers.push(addr.address);
+    await torrent.save();
+  }
 });
 
-trackerServer.on('update', function (addr) {
+trackerServer.on('update', async function (addr) {
   console.log('Peer updated:', addr);
+
+  const infoHash = addr.infoHash; // Assuming the event provides infoHash
+  const torrent = await Torrent.findOne({ infoHash });
+
+  if (torrent) {
+    // Update peers or other fields as needed
+    torrent.peers.push(addr.address);
+    await torrent.save();
+  }
 });
 
-trackerServer.on('complete', function (addr) {
+trackerServer.on('complete', async function (addr) {
   console.log('Peer completed:', addr);
+
+  const infoHash = addr.infoHash; // Assuming the event provides infoHash
+  const torrent = await Torrent.findOne({ infoHash });
+
+  if (torrent) {
+    torrent.complete += 1;
+    await torrent.save();
+  }
 });
 
-trackerServer.on('stop', function (addr) {
+trackerServer.on('stop', async function (addr) {
   console.log('Peer stopped:', addr);
+
+  const infoHash = addr.infoHash; // Assuming the event provides infoHash
+  const torrent = await Torrent.findOne({ infoHash });
+
+  if (torrent) {
+    torrent.peers = torrent.peers.filter(peer => peer !== addr.address);
+    await torrent.save();
+  }
 });
 
 // Create a custom HTTP server to handle the root and other endpoints
