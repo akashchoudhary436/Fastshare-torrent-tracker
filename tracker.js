@@ -4,6 +4,11 @@ import http from 'http';
 // In-memory storage for torrents
 const torrents = new Map();
 
+// Define ports for different services
+const httpPort = process.env.HTTP_PORT || 10000;
+const udpPort = process.env.UDP_PORT || 10001;
+const wsPort = process.env.WS_PORT || 10002;
+
 // Create a new tracker server instance
 const server = new Server({
   udp: true, // Enable UDP server
@@ -90,14 +95,22 @@ const httpServer = http.createServer((req, res) => {
 });
 
 // Start the custom HTTP server
-const port = process.env.PORT || 10000; // Set the port explicitly if needed
-httpServer.listen(port, () => {
-  console.log(`Custom HTTP server is listening on port ${port}...`);
+httpServer.listen(httpPort, () => {
+  console.log(`Custom HTTP server is listening on port ${httpPort}...`);
 
   // Start tracker server listening
-  server.listen(port, '0.0.0.0', () => {
-    console.log(`Tracker server is now listening at 0.0.0.0:${port}...`);
+  server.listen(httpPort, '0.0.0.0', () => {
+    console.log(`Tracker server is now listening at 0.0.0.0:${httpPort}...`);
   });
+});
+
+// Manually start UDP and WebSocket servers with different ports
+server.udp.listen(udpPort, '0.0.0.0', () => {
+  console.log(`UDP server is now listening on port ${udpPort}...`);
+});
+
+server.ws.listen(wsPort, '0.0.0.0', () => {
+  console.log(`WebSocket server is now listening on port ${wsPort}...`);
 });
 
 // Listen for individual tracker messages from peers
