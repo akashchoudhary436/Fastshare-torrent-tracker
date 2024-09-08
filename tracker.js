@@ -5,7 +5,7 @@ import http from 'http';
 const torrents = new Map();
 
 // Create a new tracker server instance
-const trackerServer = new Server({
+const server = new Server({
   udp: true, // Enable UDP server
   http: true, // Enable HTTP server
   ws: true, // Enable WebSocket server
@@ -18,39 +18,38 @@ const trackerServer = new Server({
 });
 
 // Handle server events
-trackerServer.on('error', function (err) {
+server.on('error', function (err) {
   console.error('Server error:', err.message);
 });
 
-trackerServer.on('warning', function (err) {
+server.on('warning', function (err) {
   console.warn('Server warning:', err.message);
 });
 
-// Log new torrent seeding
-trackerServer.on('start', function (addr) {
-  const infoHash = addr.infoHash;
-  let torrent = torrents.get(infoHash);
+// Log tracker URLs when all requested servers are listening
+server.on('listening', function () {
+  try {
+    // HTTP
+    const httpAddr = server.http.address();
+    const httpHost = 'www.fastsharetorrent.me'; // Your domain
+    const httpPort = httpAddr.port;
+    console.log(`HTTP tracker: http://${httpHost}:${httpPort}/announce`);
 
-  if (!torrent) {
-    torrent = {
-      infoHash,
-      peers: new Set(),
-      complete: 0,
-      incomplete: 0
-    };
-    torrents.set(infoHash, torrent);
-    // Log new torrent seeding
-    console.log(`New torrent started seeding: ${infoHash}`);
+    // UDP
+    const udpAddr = server.udp.address();
+    const udpHost = udpAddr.address;
+    const udpPort = udpAddr.port;
+    console.log(`UDP tracker: udp://${udpHost}:${udpPort}`);
+
+    // WebSocket
+    const wsAddr = server.ws.address();
+    const wsHost = 'www.fastsharetorrent.me'; // Your domain
+    const wsPort = wsAddr.port;
+    console.log(`WebSocket tracker: ws://${wsHost}:${wsPort}`);
+  } catch (err) {
+    console.error('Error retrieving tracker addresses:', err.message);
   }
-
-  // Add the peer to the torrent
-  torrent.peers.add(addr.address);
 });
-
-// Remove detailed logs of 'update', 'complete', or 'stop' events
-trackerServer.removeAllListeners('update');
-trackerServer.removeAllListeners('complete');
-trackerServer.removeAllListeners('stop');
 
 // Create a custom HTTP server to handle the root and other endpoints
 const httpServer = http.createServer((req, res) => {
@@ -60,13 +59,29 @@ const httpServer = http.createServer((req, res) => {
   } else if (req.url.startsWith('/announce') || req.url.startsWith('/scrape')) {
     console.log(`Handling ${req.url} request`);
     // Forward the request to the tracker server
-    trackerServer.http.emit('request', req, res);
-  } else if (req.url === '/torrents') {
-    console.log('Handling /torrents request');
-    // Endpoint to get info hashes for all torrents
-    const torrentInfoHashes = Array.from(torrents.keys());
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(torrentInfoHashes));
+    server.http.emit('request', req, res);
+  } else if (req.url.startsWith('/torrents')) {
+    // Extract infoHash from query parameters
+    const url = new URL(req.url, `http://${req.headers.host}`);
+    const infoHash = url.searchParams.get('infoHash');
+
+    if (infoHash && server.torrents[infoHash]) {
+      const torrent = server.torrents[infoHash];
+      console.log('Handling /torrents request for infoHash:', infoHash);
+
+      // Return torrent information
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        infoHash: torrent.infoHash,
+        complete: torrent.complete,
+        incomplete: torrent.incomplete,
+        peers: Array.from(torrent.peers)
+      }));
+    } else {
+      // Handle the case where the infoHash is not found
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Torrent not found' }));
+    }
   } else {
     // Handle other endpoints if necessary
     res.writeHead(404, { 'Content-Type': 'text/plain' });
@@ -79,18 +94,17 @@ const port = process.env.PORT || 10000; // Set the port explicitly if needed
 httpServer.listen(port, () => {
   console.log(`Custom HTTP server is listening on port ${port}...`);
 
-  // Now log tracker URLs after ensuring the tracker server is fully initialized
-  trackerServer.once('listening', () => {
-    try {
-      const httpAddr = trackerServer.http.address();
-      const udpAddr = trackerServer.udp.address();
-      const wsAddr = trackerServer.ws.address();
-
-      console.log(`HTTP tracker: http://www.fastsharetorrent.me:${httpAddr.port}/announce`);
-      console.log(`UDP tracker: udp://www.fastsharetorrent.me:${udpAddr.port}`);
-      console.log(`WebSocket tracker: ws://www.fastsharetorrent.me:${wsAddr.port}`);
-    } catch (err) {
-      console.error('Error retrieving tracker addresses:', err.message);
-    }
+  // Start tracker server listening
+  server.listen(port, '0.0.0.0', () => {
+    console.log(`Tracker server is now listening at 0.0.0.0:${port}...`);
   });
 });
+
+// Listen for individual tracker messages from peers
+server.on('start', function (addr) {
+  console.log('Got start message from ' + addr);
+});
+
+server.on('complete', function (addr) {});
+server.on('update', function (addr) {});
+server.on('stop', function (addr) {});
