@@ -51,16 +51,8 @@ server.on('stop', function (addr) {
   console.log('Peer stopped:', addr);
 });
 
-// Add request logging
-server.on('httpRequest', (req, res) => {
-  console.log(`Received HTTP request: ${req.method} ${req.url}`);
-  res.end(); // Ensure you respond to the request
-});
-
 // Start the tracker server
-const port = process.env.PORT || 10000; // Use environment PORT or default to 10000
-const hostname = '0.0.0.0'; // Bind to all network interfaces
-
-server.listen(port, hostname, () => {
-  console.log(`Tracker server is listening on ${hostname}:${port}...`);
+const port = process.env.PORT || 0; // Use environment PORT or fallback to random port
+server.listen(port, () => {
+  console.log(`Tracker server is listening on port ${port}...`);
 });
