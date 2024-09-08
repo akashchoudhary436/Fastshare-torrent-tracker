@@ -13,13 +13,15 @@
     "tracker",
     "bittorrent"
   ],
-  "author": "Akash", 
+  "author": "Akash",
   "license": "ISC",
   "description": "A BitTorrent tracker server implemented with bittorrent-tracker",
   "dependencies": {
-    "bittorrent-tracker": "^11.1.2"
+    "bittorrent-tracker": "^11.1.2",
+    "moongose": "^1.0.0",
+    "tracker": "file:"
   },
   "devDependencies": {
-    "eslint": "^8.0.0"  
+    "eslint": "^8.0.0"
   }
 }
