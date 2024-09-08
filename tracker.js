@@ -1,4 +1,5 @@
 import { Server } from 'bittorrent-tracker';
+import http from 'http';
 
 // Create a new tracker server instance
 const server = new Server({
@@ -23,7 +24,6 @@ server.on('warning', function (err) {
 });
 
 server.on('listening', function () {
-  // Log the addresses and ports for HTTP, UDP, and WebSocket servers
   const httpAddr = server.http.address();
   const udpAddr = server.udp.address();
   const wsAddr = server.ws.address();
@@ -50,8 +50,18 @@ server.on('stop', function (addr) {
   console.log('Peer stopped:', addr);
 });
 
-// Start the tracker server
-const port = process.env.PORT || 0; // Use environment PORT or fallback to random port
-server.listen(port, () => {
+// Create a custom HTTP server to handle the root endpoint
+const httpServer = http.createServer((req, res) => {
+  if (req.url === '/') {
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.end('Tracker is live and running!\n');
+  } else {
+    server.http.handle(req, res); // Delegate to the bittorrent-tracker server for other routes
+  }
+});
+
+// Start the custom HTTP server
+const port = process.env.PORT || 10000; // Set the port explicitly if needed
+httpServer.listen(port, () => {
   console.log(`Tracker server is listening on port ${port}...`);
 });
